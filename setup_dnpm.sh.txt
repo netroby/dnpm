@@ -1,0 +1,216 @@
+#!/bin/sh
+# configure apt default Release
+echo "deb http://http.us.debian.org/debian stable main contrib non-free
+deb http://security.debian.org stable/updates main contrib non-free
+deb http://http.us.debian.org/debian testing main contrib non-free
+deb http://security.debian.org testing/updates main contrib non-free" >> /etc/apt/sources.list
+
+echo "APT::Default-Release \"stable\";" > /etc/apt/apt.conf
+echo "Package: *
+Pin: release a=stable
+Pin-Priority: 990" > /etc/apt/preferences
+
+#安装nginx
+aptitude update && aptitude -t testing install nginx
+
+#增加新的源
+echo "deb http://packages.dotdeb.org stable all
+deb-src http://packages.dotdeb.org stable all
+deb http://php53.dotdeb.org stable all
+deb-src http://php53.dotdeb.org stable all" >> /etc/apt/sources.list
+
+gpg --keyserver keys.gnupg.net --recv-key 89DF5277
+gpg -a --export 89DF5277 | apt-key add -
+
+#安装mysql 和 php
+aptitude update && aptitude install mysql-server php5-gd php5-mysql php5-cli php5-fpm php5-cgi php5-common 
+
+#配置 mysql
+echo '[client]
+port            = 3306
+socket          = /var/run/mysqld/mysqld.sock
+
+[mysqld_safe]
+socket          = /var/run/mysqld/mysqld.sock
+nice            = 0
+
+[mysqld]
+user            = mysql
+pid-file        = /var/run/mysqld/mysqld.pid
+socket          = /var/run/mysqld/mysqld.sock
+port            = 3306
+basedir         = /usr
+datadir         = /var/lib/mysql
+tmpdir          = /tmp
+language        = /usr/share/mysql/english
+skip-external-locking
+bind-address            = 127.0.0.1
+key_buffer              = 16K
+max_allowed_packet      = 1M
+table_cache = 4
+sort_buffer_size = 64K
+read_buffer_size = 256K
+read_rnd_buffer_size = 256K
+
+thread_stack            = 64K
+thread_cache_size       = 8
+myisam-recover         = BACKUP
+query_cache_limit       = 64K
+query_cache_size        = 256K
+expire_logs_days        = 10
+max_binlog_size         = 10M
+[mysqldump]
+quick
+quote-names
+max_allowed_packet      = 16M
+
+[mysql]
+
+[isamchk]
+key_buffer              = 16M
+
+!includedir /etc/mysql/conf.d/' > /etc/mysql/my.cnf
+
+#重启mysql
+/etc/init.d/mysql restart
+
+#配置nginx
+echo 'location / {
+index index.html index.php;
+if (-f $request_filename/index.html){
+rewrite (.*) $1/index.html break;
+}
+if (-f $request_filename/index.php){
+rewrite (.*) $1/index.php;
+}
+if (!-f $request_filename){
+rewrite (.*) /index.php;
+}
+}
+location ~* \.(ico|css|js|gif|jpe?g|png)(\?[0-9]+)?$ {
+ expires max;
+ break;
+}
+
+location ~ .*\.php$ {
+#fastcgi_pass 127.0.0.1:9000;
+fastcgi_pass unix:/dev/shm/php-cgi.sock;
+fastcgi_index index.php;
+include /etc/nginx/fastcgi_params;
+
+}
+location ~ .*\.(gif|jpg|png|swf|flv)$ {
+valid_referers none blocked *.xgyl.net *.netroby.com *.google.com;
+if ($invalid_referer) {
+return 403;
+}
+}' > /etc/nginx/wordpress.conf
+
+
+echo 'user www-data;
+worker_processes  2;
+
+error_log  /var/log/nginx/error.log;
+pid        /var/run/nginx.pid;
+
+worker_rlimit_nofile 10240;
+events
+{
+        use epoll;
+
+        worker_connections  2000;
+}
+
+http
+{
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        access_log    /var/log/nginx/access.log;
+#optimize_server_names off;
+        server_name_in_redirect off;
+        server_names_hash_bucket_size 128;
+        client_header_buffer_size 1k;
+        large_client_header_buffers 4 4k;
+
+        sendfile        on;
+        tcp_nopush     on;
+
+        client_body_timeout 10;
+        client_header_timeout 10;
+        send_timeout 60;
+
+        keepalive_timeout  5 5;
+        tcp_nodelay        on;
+
+        output_buffers 1 32k;
+        postpone_output 1460;
+
+        open_file_cache max=2000 inactive=20s;
+        open_file_cache_min_uses 1;
+        open_file_cache_valid 30s;
+
+        fastcgi_connect_timeout 300;
+        fastcgi_send_timeout 300;
+        fastcgi_read_timeout 300;
+        fastcgi_buffer_size 64k;
+        fastcgi_buffers 4 64k;
+        fastcgi_busy_buffers_size 128k;
+        fastcgi_temp_file_write_size 128k;
+
+        gzip on;
+        gzip_min_length  1100;
+        gzip_buffers     4 8k;
+        gzip_http_version 1.0;
+        gzip_comp_level 7;
+        gzip_types       text/plain application/x-javascript text/css application/xml;
+
+        include /etc/nginx/sites-enabled/*;
+}' > /etc/nginx/nginx.conf
+
+echo 'fastcgi_param  GATEWAY_INTERFACE  CGI/1.1;
+fastcgi_param  SERVER_SOFTWARE    nginx;
+
+fastcgi_param  QUERY_STRING       $query_string;
+fastcgi_param  REQUEST_METHOD     $request_method;
+fastcgi_param  CONTENT_TYPE       $content_type;
+fastcgi_param  CONTENT_LENGTH     $content_length;
+
+fastcgi_param  SCRIPT_FILENAME    $document_root$fastcgi_script_name;
+fastcgi_param  SCRIPT_NAME        $fastcgi_script_name;
+fastcgi_param  REQUEST_URI        $request_uri;
+fastcgi_param  DOCUMENT_URI       $document_uri;
+fastcgi_param  DOCUMENT_ROOT      $document_root;
+fastcgi_param  SERVER_PROTOCOL    $server_protocol;
+
+fastcgi_param  REMOTE_ADDR        $remote_addr;
+fastcgi_param  REMOTE_PORT        $remote_port;
+fastcgi_param  SERVER_ADDR        $server_addr;
+fastcgi_param  SERVER_PORT        $server_port;
+fastcgi_param  SERVER_NAME        $server_name;
+
+# PHP only, required if PHP was built with --enable-force-cgi-redirect
+fastcgi_param  REDIRECT_STATUS    200;' > /etc/nginx/fastcgi_params
+
+echo 'server {
+listen [::]:80;
+server_name _;
+root /var/www;
+include /etc/nginx/wordpress.conf;
+}' > /etc/sites-available/default
+
+mkdir /var/www
+chown www-data:www-data /var/www
+chmod 777 /var/www
+echo "<?php phpinfo();" > /var/www/index.php
+
+#配置php-fpm
+rm -rf /etc/php5/fpm/php.ini
+rm -rf /etc/php5/fpm/php5-fpm.conf
+
+wget "http://dnpm.googlecode.com/svn/trunk/php.ini.txt" -O /etc/php5/fpm/php.ini
+wget "http://dnpm.googlecode.com/svn/trunk/php5-fpm.conf.txt" -O /etc/php5/fpm/php5-fpm.conf
+
+#重启php-fpm 和 nginx以完成安装
+/etc/init.d/php5-fpm restart && /etc/init.d/nginx restart
+
