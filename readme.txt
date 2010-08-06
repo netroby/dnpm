@@ -8,8 +8,9 @@ loged in your vps as root via ssh.
 
 paste following codes and run it with root access.
 
-wget "http://dnpm.googlecode.com/svn/trunk/dnpm.txt" -O ~/dnpm.sh
+wget "http://dnpm.googlecode.com/svn/trunk/dnpm.tar.gz" -O ~/dnpm.tar.gz
 cd ~
+tar zxvf ./dnpm.tar.gz
 chmod a+x ./dnpm.sh
 ./dnpm.sh
 
