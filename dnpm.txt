@@ -10,10 +10,10 @@ echo "Package: *
 Pin: release a=stable
 Pin-Priority: 990" > /etc/apt/preferences
 
-#安装nginx
+#setup nginx
 aptitude update && aptitude -t testing install nginx
 
-#增加新的源
+#add new source
 echo "deb http://packages.dotdeb.org stable all
 deb-src http://packages.dotdeb.org stable all
 deb http://php53.dotdeb.org stable all
@@ -22,10 +22,10 @@ deb-src http://php53.dotdeb.org stable all" >> /etc/apt/sources.list
 gpg --keyserver keys.gnupg.net --recv-key 89DF5277
 gpg -a --export 89DF5277 | apt-key add -
 
-#安装mysql 和 php
+#setup mysql and php
 aptitude update && aptitude install mysql-server php5-gd php5-mysql php5-cli php5-fpm php5-cgi php5-common 
 
-#配置 mysql
+#setup mysql
 echo '[client]
 port            = 3306
 socket          = /var/run/mysqld/mysqld.sock
@@ -71,10 +71,10 @@ key_buffer              = 16M
 
 !includedir /etc/mysql/conf.d/' > /etc/mysql/my.cnf
 
-#重启mysql
+#restart mysql
 /etc/init.d/mysql restart
 
-#配置nginx
+#configure nginx
 echo 'location / {
 index index.html index.php;
 if (-f $request_filename/index.html){
@@ -204,13 +204,13 @@ chown www-data:www-data /var/www
 chmod 777 /var/www
 echo "<?php phpinfo();" > /var/www/index.php
 
-#配置php-fpm
+#configure php-fpm
 rm -rf /etc/php5/fpm/php.ini
 rm -rf /etc/php5/fpm/php5-fpm.conf
 
 wget "http://dnpm.googlecode.com/svn/trunk/php.ini.txt" -O /etc/php5/fpm/php.ini
 wget "http://dnpm.googlecode.com/svn/trunk/php5-fpm.conf.txt" -O /etc/php5/fpm/php5-fpm.conf
 
-#重启php-fpm 和 nginx以完成安装
+#restart php-fpm and nginx 
 /etc/init.d/php5-fpm restart && /etc/init.d/nginx restart
 
